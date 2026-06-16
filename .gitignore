@@ -1,0 +1,15 @@
+# NEVER commit these
+.env
+*.mp3
+*.mp4
+*.mov
+*.webm
+*.m4a
+uploads/
+outputs/
+last_results.json
+cost_log.json
+files.zip
+__pycache__/
+*.pyc
+.DS_Store

@@ -1,0 +1,5 @@
+google-genai
+yt-dlp
+flask
+python-dotenv
+google-api-python-client
