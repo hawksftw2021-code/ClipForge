@@ -548,6 +548,49 @@
     }
     .toast.show { opacity: 1; transform: translateY(0); }
 
+    /* RECOMMENDATION ENGINE */
+    .recommend-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 8px;
+      margin-bottom: 1.5rem;
+    }
+
+    .content-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 10px;
+      cursor: pointer;
+      transition: all .15s;
+      text-align: center;
+    }
+
+    .content-card:hover { border-color: var(--accent); }
+    .content-card.selected {
+      border-color: var(--accent);
+      background: rgba(108,99,255,.12);
+    }
+
+    .content-card-icon { font-size: 1.4rem; margin-bottom: 4px; }
+    .content-card-name { font-size: 12px; font-weight: 500; color: var(--text); }
+    .content-card-desc { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+    .recommend-banner {
+      background: rgba(108,99,255,.1);
+      border: 1px solid rgba(108,99,255,.3);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      margin-bottom: 1.25rem;
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .recommend-banner.visible { display: flex; }
+    .recommend-banner-text { font-size: 12px; color: var(--accent2); flex: 1; }
+    .recommend-banner-note { font-size: 11px; color: var(--muted); }
+
     @media (max-width: 600px) {
       nav { padding: 1rem; }
       .card { margin: 0 1rem 2rem; padding: 1.25rem; }
@@ -572,6 +615,34 @@
   <h1>Your content.<br/><em>Your best moments.</em><br/>Ready to post.</h1>
   <p>Paste a YouTube link or upload a video. ClipForge finds your viral moments, clips them, adds captions, and has them ready in minutes.</p>
 </div>
+
+<!-- HOW IT WORKS -->
+<div class="how-section">
+  <div class="section-label">How it works</div>
+  <div class="steps-row">
+    <div class="how-step">
+      <div class="how-step-num">1</div>
+      <div class="how-step-name">Paste or upload</div>
+      <div class="how-step-desc">YouTube URL or your video file</div>
+    </div>
+    <div class="how-step">
+      <div class="how-step-num">2</div>
+      <div class="how-step-name">AI analyzes</div>
+      <div class="how-step-desc">Finds your viral moments</div>
+    </div>
+    <div class="how-step">
+      <div class="how-step-num">3</div>
+      <div class="how-step-name">Clips generated</div>
+      <div class="how-step-desc">Auto-captions included</div>
+    </div>
+    <div class="how-step">
+      <div class="how-step-num">4</div>
+      <div class="how-step-name">Download &amp; post</div>
+      <div class="how-step-desc">Ready for TikTok, Reels, Shorts</div>
+    </div>
+  </div>
+</div>
+
 
 <!-- MAIN APP CARD -->
 <div class="card" id="main-card">
@@ -601,35 +672,102 @@
     <button class="btn-main" id="upload-go-btn" onclick="startProcessing()" style="width:100%" disabled>Generate clips →</button>
   </div>
 
-  <!-- CLIP TYPE -->
-  <div class="options-label" style="margin-top:1.5rem">What type of clips?</div>
-  <div class="clip-types">
-    <div class="clip-type selected" onclick="selectType(this)">
+  <!-- STEP 1: CONTENT CATEGORY -->
+  <div class="options-label" style="margin-top:1.5rem">Step 1 — What type of content is this?</div>
+  <div class="recommend-grid" id="content-grid">
+    <div class="content-card" onclick="selectContent(this, 'gaming')" data-content="gaming">
+      <div class="content-card-icon">🎮</div>
+      <div class="content-card-name">Gaming / Stream</div>
+      <div class="content-card-desc">Gameplay, reactions, live streams</div>
+    </div>
+    <div class="content-card" onclick="selectContent(this, 'podcast')" data-content="podcast">
+      <div class="content-card-icon">🎙️</div>
+      <div class="content-card-name">Podcast / Interview</div>
+      <div class="content-card-desc">Conversations, hot takes, guests</div>
+    </div>
+    <div class="content-card" onclick="selectContent(this, 'vlog')" data-content="vlog">
+      <div class="content-card-icon">📖</div>
+      <div class="content-card-name">Story / Vlog</div>
+      <div class="content-card-desc">Personal, emotional, narrative</div>
+    </div>
+    <div class="content-card" onclick="selectContent(this, 'tutorial')" data-content="tutorial">
+      <div class="content-card-icon">🎓</div>
+      <div class="content-card-name">Tutorial / Setup</div>
+      <div class="content-card-desc">How-to, product tours, tips</div>
+    </div>
+    <div class="content-card" onclick="selectContent(this, 'comedy')" data-content="comedy">
+      <div class="content-card-icon">😂</div>
+      <div class="content-card-name">Entertainment</div>
+      <div class="content-card-desc">Comedy, commentary, skits</div>
+    </div>
+  </div>
+
+  <!-- RECOMMENDATION BANNER -->
+  <div class="recommend-banner" id="recommend-banner">
+    <div>
+      <div class="recommend-banner-text" id="recommend-text">We recommend Viral moments for this content type.</div>
+      <div class="recommend-banner-note" id="recommend-note"></div>
+    </div>
+  </div>
+
+  <!-- STEP 2: CLIP TYPE -->
+  <div class="options-label">Step 2 — Choose clip type <span style="color:var(--muted);font-size:11px;font-weight:400">(or use our recommendation above)</span></div>
+  <div class="clip-types" id="clip-type-grid">
+    <div class="clip-type selected" onclick="selectType(this)" data-type="viral">
       <div class="clip-type-icon">🔥</div>
       <div class="clip-type-name">Viral moments</div>
-      <div class="clip-type-desc">High reaction, hype peaks</div>
+      <div class="clip-type-desc">High energy, hype peaks</div>
     </div>
-    <div class="clip-type" onclick="selectType(this)">
-      <div class="clip-type-icon">✂️</div>
+    <div class="clip-type" onclick="selectType(this)" data-type="highlights">
+      <div class="clip-type-icon">⭐</div>
       <div class="clip-type-name">Best highlights</div>
       <div class="clip-type-desc">Top value moments</div>
     </div>
-    <div class="clip-type" onclick="selectType(this)">
+    <div class="clip-type" onclick="selectType(this)" data-type="hooks">
       <div class="clip-type-icon">🪝</div>
       <div class="clip-type-name">Hook clips</div>
-      <div class="clip-type-desc">Grab attention fast</div>
+      <div class="clip-type-desc">Stop the scroll fast</div>
     </div>
-    <div class="clip-type" onclick="selectType(this)">
+    <div class="clip-type" onclick="selectType(this)" data-type="funny">
       <div class="clip-type-icon">😂</div>
       <div class="clip-type-name">Funny moments</div>
       <div class="clip-type-desc">Laughs and reactions</div>
+    </div>
+    <div class="clip-type" onclick="selectType(this)" data-type="tips">
+      <div class="clip-type-icon">💡</div>
+      <div class="clip-type-name">Tips & education</div>
+      <div class="clip-type-desc">Useful, actionable info</div>
+    </div>
+    <div class="clip-type" onclick="selectType(this)" data-type="quotable">
+      <div class="clip-type-icon">💬</div>
+      <div class="clip-type-name">Quotable moments</div>
+      <div class="clip-type-desc">Hot takes, one-liners</div>
     </div>
   </div>
 
   <!-- SETTINGS -->
   <div class="options-label">Settings</div>
 
-  <div class="slider-row">
+  <div class="options-label" style="margin-bottom:.5rem;font-size:11px">Output format</div>
+  <div class="clip-types" id="format-selector">
+    <div class="clip-type selected" onclick="selectFormat(this, 'vertical')" data-format="vertical">
+      <div class="clip-type-icon">📱</div>
+      <div class="clip-type-name">Vertical 9:16</div>
+      <div class="clip-type-desc">TikTok, Reels, Shorts</div>
+    </div>
+    <div class="clip-type" onclick="selectFormat(this, 'horizontal')" data-format="horizontal">
+      <div class="clip-type-icon">🖥️</div>
+      <div class="clip-type-name">Horizontal 16:9</div>
+      <div class="clip-type-desc">YouTube, Twitter</div>
+    </div>
+    <div class="clip-type" onclick="selectFormat(this, 'square')" data-format="square">
+      <div class="clip-type-icon">⬛</div>
+      <div class="clip-type-name">Square 1:1</div>
+      <div class="clip-type-desc">Instagram feed</div>
+    </div>
+  </div>
+
+  <div class="slider-row" style="margin-top:1rem">
     <label>Number of clips</label>
     <span id="clip-count-val">5</span>
   </div>
@@ -689,33 +827,6 @@
 
 </div>
 
-<!-- HOW IT WORKS -->
-<div class="how-section">
-  <div class="section-label">How it works</div>
-  <div class="steps-row">
-    <div class="how-step">
-      <div class="how-step-num">1</div>
-      <div class="how-step-name">Paste or upload</div>
-      <div class="how-step-desc">YouTube URL or your video file</div>
-    </div>
-    <div class="how-step">
-      <div class="how-step-num">2</div>
-      <div class="how-step-name">AI analyzes</div>
-      <div class="how-step-desc">Finds your viral moments</div>
-    </div>
-    <div class="how-step">
-      <div class="how-step-num">3</div>
-      <div class="how-step-name">Clips generated</div>
-      <div class="how-step-desc">Auto-captions included</div>
-    </div>
-    <div class="how-step">
-      <div class="how-step-num">4</div>
-      <div class="how-step-name">Download &amp; post</div>
-      <div class="how-step-desc">Ready for TikTok, Reels, Shorts</div>
-    </div>
-  </div>
-</div>
-
 <!-- PRICING -->
 <div class="pricing-strip">
   <div class="section-label">Credit packs</div>
@@ -758,6 +869,67 @@
 
   let activeTab = 'url';
   let fileSelected = false;
+  let selectedFormat = 'vertical';
+  let selectedClipType = 'viral';
+  let selectedContent = null;
+
+  // Recommendation engine — built from real test data
+  const RECOMMENDATIONS = {
+    gaming: {
+      type:    'viral',
+      text:    'We recommend Viral moments for gaming and streaming content.',
+      note:    'High energy reactions and hype peaks perform best for this content type.',
+    },
+    podcast: {
+      type:    'quotable',
+      text:    'We recommend Quotable moments for podcasts and interviews.',
+      note:    'Hot takes and memorable one-liners drive the most shares from long-form conversations.',
+    },
+    vlog: {
+      type:    'highlights',
+      text:    'We recommend Best highlights for story and vlog content.',
+      note:    'Emotional and narrative moments resonate most with audiences on personal content.',
+    },
+    tutorial: {
+      type:    'tips',
+      text:    'We recommend Tips & education for tutorial and setup content.',
+      note:    'Useful, actionable clips perform consistently across all platforms for this content type.',
+    },
+    comedy: {
+      type:    'funny',
+      text:    'We recommend Funny moments for entertainment content.',
+      note:    'Comedy and reaction clips drive the highest share rates on TikTok and Reels.',
+    },
+  };
+
+  function selectContent(el, contentType) {
+    // Highlight selected content card
+    document.querySelectorAll('.content-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedContent = contentType;
+
+    // Get recommendation
+    const rec = RECOMMENDATIONS[contentType];
+    if (!rec) return;
+
+    // Auto-select recommended clip type
+    document.querySelectorAll('#clip-type-grid .clip-type').forEach(c => {
+      c.classList.remove('selected');
+      if (c.dataset.type === rec.type) c.classList.add('selected');
+    });
+    selectedClipType = rec.type;
+
+    // Show recommendation banner
+    document.getElementById('recommend-text').textContent = rec.text;
+    document.getElementById('recommend-note').textContent = rec.note;
+    document.getElementById('recommend-banner').classList.add('visible');
+  }
+
+  function selectFormat(el, fmt) {
+    document.querySelectorAll('#format-selector .clip-type').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedFormat = fmt;
+  }
 
   function switchTab(tab, el) {
     activeTab = tab;
@@ -768,8 +940,9 @@
   }
 
   function selectType(el) {
-    document.querySelectorAll('.clip-type').forEach(c => c.classList.remove('selected'));
+    document.querySelectorAll('#clip-type-grid .clip-type').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
+    selectedClipType = el.dataset.type || 'viral';
   }
 
   function handleDragOver(e) {
@@ -800,88 +973,127 @@
     document.getElementById('upload-go-btn').disabled = false;
   }
 
-  function startProcessing() {
-    const url = document.getElementById('url-input')?.value;
+  async function startProcessing() {
+    const url = document.getElementById('url-input')?.value.trim();
     if (activeTab === 'url' && !url) {
-      showToast('⚠️ Paste a YouTube URL first');
+      showToast('Paste a YouTube URL first');
       return;
     }
 
-    const credits = parseInt(document.getElementById('credit-count').textContent);
-    const clipCount = parseInt(document.querySelector('input[type=range]').value);
-    if (credits < clipCount) {
-      showToast('⚠️ Not enough credits — buy more!');
-      return;
-    }
-
+    // Hide all input sections
     document.getElementById('tab-url').style.display    = 'none';
     document.getElementById('tab-upload').style.display = 'none';
     document.querySelector('.tabs').style.display       = 'none';
     document.querySelectorAll('.options-label').forEach(el => el.style.display = 'none');
-    document.querySelectorAll('.clip-types, input[type=range], .slider-row').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.clip-types, input[type=range], .slider-row, #format-selector, #content-grid, #recommend-banner, .recommend-grid').forEach(el => el.style.display = 'none');
 
+    // Show progress
     document.getElementById('progress-section').classList.add('visible');
-    runSteps();
-  }
 
-  function runSteps() {
-    const steps = [
-      { id: 'step-1', active: 'Downloading...', done: 'Video fetched' },
-      { id: 'step-2', active: 'Transcribing with Whisper...', done: 'Transcript ready' },
-      { id: 'step-3', active: 'AI analyzing moments...', done: 'Best moments found' },
-      { id: 'step-4', active: 'Rendering + adding captions...', done: 'Clips ready!' },
-    ];
+    // Get settings
+    const sliders    = document.querySelectorAll('input[type=range]');
+    const numClips   = sliders[0] ? parseInt(sliders[0].value) : 5;
+    const clipLength = sliders[1] ? parseInt(sliders[1].value) : 45;
 
-    let i = 0;
-    function next() {
-      if (i > 0) {
-        const prev = document.getElementById(steps[i-1].id);
-        prev.classList.remove('active');
-        prev.classList.add('done');
-        prev.querySelector('.step-status').textContent = steps[i-1].done;
-        prev.querySelector('.step-dot').textContent = '✓';
+    activateStep('step-1', 'Downloading video...');
+
+    try {
+      const response = await fetch('/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url:         url,
+          clip_type:   selectedClipType || 'viral',
+          num_clips:   numClips,
+          clip_length: clipLength,
+        })
+      });
+
+      completeStep('step-1', 'Video downloaded');
+      activateStep('step-2', 'Transcribing with Gemini Flash...');
+      await new Promise(r => setTimeout(r, 600));
+      completeStep('step-2', 'Transcript ready');
+      activateStep('step-3', 'AI finding best moments...');
+      await new Promise(r => setTimeout(r, 600));
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Something went wrong');
       }
-      if (i < steps.length) {
-        const cur = document.getElementById(steps[i].id);
-        cur.classList.add('active');
-        cur.querySelector('.step-status').textContent = steps[i].active;
-        i++;
-        setTimeout(next, 1800 + Math.random() * 800);
-      } else {
-        showResults();
-      }
+
+      completeStep('step-3', 'Best moments found');
+      activateStep('step-4', 'Preparing your clips...');
+      await new Promise(r => setTimeout(r, 400));
+      completeStep('step-4', 'Clips ready!');
+      await new Promise(r => setTimeout(r, 300));
+
+      showResults(data, url);
+
+    } catch (err) {
+      console.error(err);
+      showToast('Error: ' + err.message);
+      resetApp();
     }
-    next();
   }
 
-  function showResults() {
-    const clipCount = 5;
-    document.getElementById('credit-count').textContent =
-      Math.max(0, parseInt(document.getElementById('credit-count').textContent) - clipCount);
+  function activateStep(stepId, message) {
+    const step = document.getElementById(stepId);
+    if (!step) return;
+    step.classList.add('active');
+    step.querySelector('.step-status').textContent = message;
+  }
 
+  function completeStep(stepId, message) {
+    const step = document.getElementById(stepId);
+    if (!step) return;
+    step.classList.remove('active');
+    step.classList.add('done');
+    step.querySelector('.step-status').textContent = message;
+    step.querySelector('.step-dot').textContent = '✓';
+  }
+
+  function showResults(data, sourceUrl) {
     document.getElementById('progress-section').classList.remove('visible');
     document.getElementById('results-section').classList.add('visible');
 
+    const header = document.querySelector('.results-title');
+    if (header) header.textContent = data.title || 'Your clips are ready';
+
     const grid = document.getElementById('clips-grid');
     grid.innerHTML = '';
-    DEMO_CLIPS.forEach((clip, idx) => {
+
+    const clips = data.clips || [];
+    clips.forEach((clip) => {
+      const isViral = clip.viral_score >= 90;
       grid.innerHTML += `
         <div class="clip-card">
           <div class="clip-thumb">
-            ${clip.emoji}
-            <div class="clip-badge">${clip.type}</div>
-            ${clip.viral ? '<div class="viral-badge">🔥 Viral</div>' : ''}
+            🎬
+            <div class="clip-badge">#${clip.rank}</div>
+            <div class="viral-badge" style="${isViral ? '' : 'background:rgba(100,100,100,.7)'}">
+              ${isViral ? '🔥 ' : ''}${clip.viral_score}
+            </div>
           </div>
           <div class="clip-info">
             <div class="clip-title">${clip.title}</div>
-            <div class="clip-meta">${clip.time}</div>
+            <div class="clip-meta">${clip.start_time} → ${clip.end_time} · ${clip.duration_seconds}s</div>
+            <div class="clip-meta" style="margin-top:4px;font-size:10px;color:var(--muted)">${clip.reason || ''}</div>
           </div>
           <div class="clip-actions">
-            <button class="btn-sm" onclick="showToast('👀 Preview coming soon!')">Preview</button>
-            <button class="btn-sm primary" onclick="showToast('⬇️ Download coming soon!')">Download</button>
+            <button class="btn-sm" onclick="copyCaption(\`${(clip.suggested_caption || '').replace(/`/g, '\`')}\`)">Copy caption</button>
+            <button class="btn-sm primary" onclick="showToast('Cutting coming soon!')">Cut clip</button>
           </div>
         </div>`;
     });
+
+    if (data.cost && data.cost.this_run) {
+      showToast('Done! Cost: $' + data.cost.this_run.toFixed(4));
+    }
+  }
+
+  function copyCaption(text) {
+    navigator.clipboard.writeText(text).then(() => showToast('Caption copied!'));
   }
 
   function resetApp() {

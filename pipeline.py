@@ -173,8 +173,10 @@ def analyze_with_gemini(
     clip_type_instructions = {
         "viral":      "moments where energy spikes, crowd reacts loudly, speaker raises voice, laughter erupts, or something shocking/surprising happens",
         "highlights": "the most valuable, insightful, or impressive moments that best represent the content",
-        "hooks":      "the most attention-grabbing opening moments that would make someone stop scrolling",
+        "hooks":      "the most attention-grabbing opening moments that would make someone stop scrolling — prioritize the first 3 seconds of each potential clip",
         "funny":      "the funniest moments, unexpected reactions, jokes that landed, or comedic timing",
+        "tips":       "practical tips, advice, how-to moments, product explanations, and any moment where the speaker shares genuinely useful information the viewer can act on",
+        "quotable":   "single powerful statements, hot takes, memorable one-liners, strong opinions, or anything someone would screenshot or share as a quote — must stand alone without context",
     }
 
     clip_instruction = clip_type_instructions.get(clip_type, clip_type_instructions["viral"])
@@ -328,6 +330,6 @@ if __name__ == "__main__":
 
     results = run_pipeline(url, clip_type, num_clips, clip_length)
 
-with open("last_results.json", "w", encoding="utf-8") as f:
-    json.dump(results, f, indent=2, ensure_ascii=False)
-print(f"Results saved to: last_results.json\n")
+    with open("last_results.json", "w") as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
+    print(f"Results saved to: last_results.json\n")
