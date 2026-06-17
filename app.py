@@ -46,11 +46,17 @@ jobs = {}
 
 @app.route("/")
 def index():
-    """Serve the ClipForge frontend."""
+    """Serve the ClipForge frontend — no cache."""
     html_path = Path("clipforge.html")
     if html_path.exists():
         with open(html_path, "r", encoding="utf-8") as f:
-            return f.read()
+            html = f.read()
+        from flask import Response
+        response = Response(html, mimetype="text/html")
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
     return "ClipForge — clipforge.html not found", 404
 
 

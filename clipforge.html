@@ -1054,6 +1054,7 @@
   }
 
   function showResults(data, sourceUrl) {
+    currentAnalysis = data; // store for cutting
     document.getElementById('progress-section').classList.remove('visible');
     document.getElementById('results-section').classList.add('visible');
 
@@ -1082,7 +1083,7 @@
           </div>
           <div class="clip-actions">
             <button class="btn-sm" onclick="copyCaption(\`${(clip.suggested_caption || '').replace(/`/g, '\`')}\`)">Copy caption</button>
-            <button class="btn-sm primary" onclick="showToast('Cutting coming soon!')">Cut clip</button>
+            <button class="btn-sm primary" onclick="cutClip(${clip.rank}, '${sourceUrl}')">Cut clip</button>
           </div>
         </div>`;
     });
@@ -1094,6 +1095,52 @@
 
   function copyCaption(text) {
     navigator.clipboard.writeText(text).then(() => showToast('Caption copied!'));
+  }
+
+  // Track current analysis results for cutting
+  let currentAnalysis = null;
+
+  async function cutClip(rank, sourceUrl) {
+    const clip = (currentAnalysis?.clips || []).find(c => c.rank === rank);
+    if (!clip) { showToast('Clip data not found'); return; }
+
+    const fmt = selectedFormat || 'vertical';
+    showToast('Cutting clip #' + rank + '... this takes a minute');
+
+    try {
+      const response = await fetch('/clip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_url:    sourceUrl,
+          title:         currentAnalysis?.title || 'video',
+          clips:         [clip],
+          format:        fmt,
+          burn_captions: true,
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Cut failed');
+      }
+
+      // Trigger download
+      const clipData = data.clips[0];
+      if (clipData?.download_url) {
+        const a = document.createElement('a');
+        a.href = clipData.download_url;
+        a.download = clipData.filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        showToast('Downloading clip #' + rank + ' (' + clipData.size_mb + ' MB)');
+      }
+
+    } catch (err) {
+      showToast('Error: ' + err.message);
+    }
   }
 
   function resetApp() {
