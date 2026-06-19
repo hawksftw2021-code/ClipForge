@@ -20,6 +20,8 @@ import yt_dlp
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
+from trend_detector import get_trend_data, calculate_trend_score
+from scoring_engine import score_all_clips, get_comment_signals
 
 load_dotenv()
 
@@ -166,9 +168,10 @@ def analyze_with_gemini(
 
     client = genai.Client(api_key=GEMINI_API_KEY)
 
-    print("    Uploading audio to Gemini...")
+    print("    Loading audio for Gemini...")
     with open(audio_path, "rb") as f:
         audio_data = f.read()
+    print(f"    Audio loaded: {len(audio_data) // 1024}KB")
 
     clip_type_instructions = {
         "viral":      "moments where energy spikes, crowd reacts loudly, speaker raises voice, laughter erupts, or something shocking/surprising happens",
@@ -210,8 +213,18 @@ Respond ONLY with valid JSON in this exact format, no other text:
       "end_time": "2:59",
       "duration_seconds": 45,
       "viral_score": 92,
+      "scores": {{
+        "hook": 94,
+        "energy": 88,
+        "audience": 85,
+        "value": 90,
+        "trend": 87
+      }},
       "clip_type": "viral",
       "reason": "One sentence explaining why this moment is great",
+      "hook_explanation": "One sentence explaining the hook score",
+      "energy_explanation": "One sentence explaining the energy score",
+      "value_explanation": "One sentence explaining the value score",
       "energy_level": "high",
       "suggested_caption": "Caption text to overlay on the clip",
       "hook_line": "First few words that grab attention"
@@ -224,13 +237,72 @@ Respond ONLY with valid JSON in this exact format, no other text:
 Target clip length: approximately {clip_length} seconds each.
 Return exactly {num_clips} clips ranked by viral potential."""
 
-    response = client.models.generate_content(
-        model="gemini-3.5-flash",
-        contents=[
-            types.Part.from_bytes(data=audio_data, mime_type=mime_type),
-            prompt,
-        ]
-    )
+    import time
+
+    # Model cascade — try primary first, fall back to backup
+    MODELS = [
+        "gemini-3.5-flash",       # Primary — newest, most capable
+        "gemini-3.1-flash-lite",  # Backup — if primary returns empty
+    ]
+    MAX_RETRIES   = 3
+    RETRY_DELAYS  = [10, 20, 30]
+    response      = None
+    used_model    = None
+
+    for model_name in MODELS:
+        for attempt in range(MAX_RETRIES):
+            try:
+                if attempt > 0:
+                    delay = RETRY_DELAYS[attempt - 1]
+                    print(f"    Retrying in {delay}s (attempt {attempt + 1}/{MAX_RETRIES})...")
+                    time.sleep(delay)
+
+                print(f"    Calling {model_name}...")
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=[
+                        types.Part.from_bytes(data=audio_data, mime_type=mime_type),
+                        prompt,
+                    ]
+                )
+
+                # Check finish_reason — OTHER or None means empty/failed
+                finish_reason = None
+                if response.candidates:
+                    finish_reason = str(response.candidates[0].finish_reason)
+
+                if not response.text or finish_reason in ["OTHER", "None", "SAFETY"]:
+                    print(f"    {model_name} returned empty (finish_reason: {finish_reason}) — trying next...")
+                    response = None
+                    break  # Try next model
+
+                # Good response
+                used_model = model_name
+                print(f"    Success with {model_name}")
+                break
+
+            except Exception as e:
+                error_str = str(e)
+                if "503" in error_str or "429" in error_str or "UNAVAILABLE" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+                    if attempt < MAX_RETRIES - 1:
+                        continue
+                    else:
+                        print(f"    {model_name} unavailable after {MAX_RETRIES} retries — trying next model...")
+                        break
+                else:
+                    raise
+
+        if response and used_model:
+            break  # Got a good response, stop trying models
+
+    if not response or not response.text:
+        raise Exception(
+            "Our AI is experiencing high demand right now. "
+            "Your credits have not been deducted. "
+            "Please try again in a few minutes."
+        )
+
+    print(f"    Model used: {used_model}")
 
     # ── Token tracking ─────────────────────────────────────────────────────
     usage         = response.usage_metadata
@@ -242,6 +314,14 @@ Return exactly {num_clips} clips ranked by viral potential."""
     print_cost_summary(input_tokens, output_tokens, cost)
     # ───────────────────────────────────────────────────────────────────────
 
+    # Handle empty response
+    if not response.text:
+        raise Exception(
+            "Gemini returned an empty response. "
+            "This can happen with certain audio formats or content. "
+            "Please try again or use a different video."
+        )
+
     raw = response.text.strip()
 
     # Strip markdown code fences if present
@@ -252,7 +332,73 @@ Return exactly {num_clips} clips ranked by viral potential."""
     if raw.endswith("```"):
         raw = raw[:-3]
 
+    if not raw.strip():
+        raise Exception("Gemini returned an empty response. Please try again.")
+
     result = json.loads(raw.strip())
+
+    # ── Trend data ────────────────────────────────────────────────────────
+    language = result.get("video_language", "").lower()
+    region_map = {"portuguese": "BR", "english": "US", "spanish": "MX",
+                  "french": "FR", "german": "DE", "italian": "IT"}
+    detected_region = "US"
+    for lang, reg in region_map.items():
+        if lang in language:
+            detected_region = reg
+            break
+
+    print(f"\n    Fetching trend data for {clip_type} in {detected_region}...")
+    try:
+        trend_data = get_trend_data(clip_type, region=detected_region)
+        result["trend_data"] = {
+            "trending_tags":       trend_data.get("trending_tags", [])[:8],
+            "trending_searches":   trend_data.get("trending_searches", [])[:5],
+            "hashtag_suggestions": trend_data.get("hashtag_suggestions", [])[:15],
+            "region":              detected_region,
+        }
+    except Exception as e:
+        print(f"    Trend data error: {e}")
+        trend_data = {}
+        result["trend_data"] = {"trending_tags": [], "trending_searches": [], "hashtag_suggestions": [], "region": detected_region}
+
+    # ── YouTube comment signals ────────────────────────────────────────────
+    video_id = source_url.split("v=")[-1].split("&")[0] if "v=" in source_url else ""
+    print(f"    Fetching YouTube comment signals...")
+    try:
+        comment_data = get_comment_signals(video_id) if video_id else {"available": False, "reason": "No video ID"}
+        if comment_data.get("available"):
+            print(f"    Comments: {comment_data.get('count',0):,} total, {len(comment_data.get('timestamps',[]))} timestamp mentions")
+        else:
+            print(f"    Comments: {comment_data.get('reason','unavailable')}")
+    except Exception as e:
+        print(f"    Comment signal error: {e}")
+        comment_data = {"available": False, "reason": str(e)}
+
+    # ── Multi-signal scoring engine ────────────────────────────────────────
+    print(f"    Running multi-signal scoring engine...")
+    transcript = result.get("transcript", [])
+    scored_clips = score_all_clips(
+        clips=result.get("clips", []),
+        transcript=transcript,
+        video_id=video_id,
+        trend_data=trend_data,
+        comment_data=comment_data,
+        chat_spikes=None,
+    )
+
+    # Add hashtags to each clip
+    for clip in scored_clips:
+        clip["hashtags"] = trend_data.get("hashtag_suggestions", [])[:10]
+
+    result["clips"] = scored_clips
+    result["scoring_signals"] = {
+        "signals_used":   scored_clips[0].get("signals_used", []) if scored_clips else [],
+        "signal_count":   scored_clips[0].get("signal_count", 1) if scored_clips else 1,
+        "confidence":     scored_clips[0].get("confidence_level", "Low") if scored_clips else "Low",
+    }
+    # ───────────────────────────────────────────────────────────────────────
+    # ───────────────────────────────────────────────────────────────────────
+
     print(f"    Language detected  : {result.get('video_language', 'Unknown')}")
     print(f"    Transcript segments: {len(result.get('transcript', []))}")
     print(f"    Clips identified   : {len(result.get('clips', []))}")
@@ -311,6 +457,33 @@ def run_pipeline(
 
         print_results(results, title)
         return results
+
+
+def run_trend_and_scoring(
+    audio_path: str,
+    mime_type: str,
+    clip_type: str = "viral",
+    num_clips: int = 5,
+    clip_length: int = 45,
+    source_url: str = "",
+    title: str = "Uploaded video",
+) -> dict:
+    """
+    Runs Gemini analysis + trend scoring on an already-downloaded/uploaded file.
+    Used by both the URL pipeline and the direct file upload endpoint.
+    """
+    results = analyze_with_gemini(
+        audio_path=audio_path,
+        mime_type=mime_type,
+        clip_type=clip_type,
+        num_clips=num_clips,
+        clip_length=clip_length,
+        source_url=source_url,
+    )
+    results["source_title"]    = title
+    results["source_duration"] = 0
+    results["source_url"]      = source_url
+    return results
 
 
 if __name__ == "__main__":

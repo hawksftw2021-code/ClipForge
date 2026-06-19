@@ -96,8 +96,13 @@ def analyze():
     if not url:
         return jsonify({"error": "No URL provided"}), 400
 
-    if "youtube.com" not in url and "youtu.be" not in url:
-        return jsonify({"error": "Please provide a valid YouTube URL"}), 400
+    # Block obviously invalid URLs
+    # yt-dlp supports YouTube, Twitch, Kick, Twitter, Facebook, Vimeo and 1000+ more
+    BLOCKED = ["netflix.com", "spotify.com", "apple.com/music", "tidal.com"]
+    if any(b in url for b in BLOCKED):
+        return jsonify({"error": "This platform is not supported. Try YouTube, Twitch, Kick, or Vimeo."}), 400
+    if not url.startswith("http"):
+        return jsonify({"error": "Please provide a valid URL starting with http or https"}), 400
 
     clip_type  = data.get("clip_type", "viral")
     num_clips  = int(data.get("num_clips", 5))
@@ -146,6 +151,110 @@ def analyze():
         return jsonify({"error": str(e)}), 500
 
 
+# ─── FILE UPLOAD ENDPOINT ────────────────────────────────────────────────────
+
+@app.route("/upload", methods=["POST"])
+def upload():
+    """
+    Accepts a direct video file upload from the creator.
+    Saves it temporarily and runs through the pipeline.
+    No yt-dlp needed — creator uploads their own content.
+
+    Form data:
+      file       — video file (MP4, MOV, AVI, WebM)
+      clip_type  — viral | highlights | hooks | funny | tips | quotable
+      num_clips  — 1-10
+      clip_length — 15-180
+    """
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+
+    file       = request.files["file"]
+    clip_type  = request.form.get("clip_type",   "viral")
+    num_clips  = int(request.form.get("num_clips",  5))
+    clip_length = int(request.form.get("clip_length", 45))
+
+    if file.filename == "":
+        return jsonify({"error": "No file selected"}), 400
+
+    # Validate file type
+    allowed = {"mp4", "mov", "avi", "webm", "mkv", "m4a", "m4v"}
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    if ext not in allowed:
+        return jsonify({"error": f"File type .{ext} not supported. Use MP4, MOV, AVI, or WebM"}), 400
+
+    # MIME type mapping
+    mime_map = {
+        "mp4":  "video/mp4",
+        "mov":  "video/quicktime",
+        "avi":  "video/avi",
+        "webm": "video/webm",
+        "mkv":  "video/webm",
+        "m4v":  "video/mp4",
+        "m4a":  "audio/mp4",
+    }
+    mime_type = mime_map.get(ext, "video/mp4")
+
+    import tempfile
+    import os
+
+    try:
+        # Save uploaded file to temp location
+        with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
+            file.save(tmp.name)
+            tmp_path  = tmp.name
+            file_size = os.path.getsize(tmp_path) / 1024 / 1024
+
+        print(f"[ClipForge] Direct upload: {file.filename} ({file_size:.1f}MB)")
+        print(f"[ClipForge] Type: {clip_type} | Clips: {num_clips} | Length: {clip_length}s")
+
+        # Run pipeline directly on the uploaded file
+        from pipeline import analyze_with_gemini, run_trend_and_scoring
+        results = run_trend_and_scoring(
+            audio_path=tmp_path,
+            mime_type=mime_type,
+            clip_type=clip_type,
+            num_clips=num_clips,
+            clip_length=clip_length,
+            source_url=f"upload://{file.filename}",
+            title=file.filename.rsplit(".", 1)[0],
+        )
+
+        # Clean up temp file
+        os.unlink(tmp_path)
+
+        # Load cost info
+        cost_info = {}
+        if os.path.exists("cost_log.json"):
+            with open("cost_log.json", "r") as f:
+                log = json.load(f)
+                cost_info = {
+                    "this_run":    log["runs"][-1]["cost_usd"] if log["runs"] else 0,
+                    "total_spent": log["total_spent_usd"],
+                    "total_runs":  log["total_runs"],
+                }
+
+        return jsonify({
+            "success":          True,
+            "title":            results.get("source_title", file.filename),
+            "language":         results.get("video_language", ""),
+            "summary":          results.get("video_summary", ""),
+            "clips":            results.get("clips", []),
+            "best_clip_reason": results.get("best_clip_reason", ""),
+            "cost":             cost_info,
+            "source_url":       f"upload://{file.filename}",
+        })
+
+    except Exception as e:
+        print(f"[ClipForge] Upload error: {e}")
+        # Clean up if error
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+        return jsonify({"error": str(e)}), 500
+
+
 # ─── CLIP ENDPOINT ────────────────────────────────────────────────────────────
 
 @app.route("/clip", methods=["POST"])
@@ -167,7 +276,7 @@ def clip():
     source_url    = data.get("source_url", "")
     clips         = data.get("clips", [])
     fmt           = data.get("format", "vertical")
-    burn_captions = data.get("burn_captions", True)
+    burn_captions = data.get("burn_captions", False)
 
     if not source_url or not clips:
         return jsonify({"error": "Missing source URL or clips"}), 400
@@ -272,8 +381,10 @@ if __name__ == "__main__":
     print(f"  YouTube : {'✓ Ready' if os.getenv('YOUTUBE_API_KEY') else '✗ Missing YOUTUBE_API_KEY'}")
     print("═" * 50 + "\n")
 
+    port = int(os.environ.get("PORT", 5000))
+    debug = os.environ.get("RAILWAY_ENVIRONMENT") is None  # debug off in production
     app.run(
         host="0.0.0.0",
-        port=5000,
-        debug=True,
+        port=port,
+        debug=debug,
     )

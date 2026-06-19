@@ -4,6 +4,15 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Clipforge — AI Clip Generator</title>
+  <!-- PostHog Analytics — track user behavior, data driven decisions only -->
+  <script>
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+" (stub)"},o="init identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing opt_in_capturing has_opted_out_capturing has_opted_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys getNextSurveyStep onSessionId setPersonPropertiesForFlags".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init('POSTHOG_API_KEY', {
+      api_host: 'https://us.i.posthog.com',
+      person_profiles: 'identified_only',
+    })
+  </script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet"/>
@@ -647,30 +656,29 @@
 <!-- MAIN APP CARD -->
 <div class="card" id="main-card">
 
-  <!-- TABS -->
-  <div class="tabs">
-    <button class="tab active" onclick="switchTab('url', this)">🔗 YouTube URL</button>
-    <button class="tab" onclick="switchTab('upload', this)">📁 Upload video</button>
+  <!-- URL + UPLOAD — combined input -->
+  <div class="input-group">
+    <input class="url-input" id="url-input" type="text"
+           placeholder="Paste a URL (YouTube, Twitch, Kick, Vimeo...)"/>
+    <button class="btn-main" id="go-btn" onclick="startProcessing()">Generate →</button>
   </div>
 
-  <!-- URL TAB -->
-  <div id="tab-url">
-    <div class="input-group">
-      <input class="url-input" id="url-input" type="text" placeholder="Paste YouTube URL here..."/>
-      <button class="btn-main" id="go-btn" onclick="startProcessing()">Generate clips →</button>
-    </div>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem">
+    <div style="flex:1;height:1px;background:var(--border)"></div>
+    <span style="font-size:12px;color:var(--muted)">or upload a file</span>
+    <div style="flex:1;height:1px;background:var(--border)"></div>
   </div>
 
-  <!-- UPLOAD TAB -->
-  <div id="tab-upload" style="display:none">
-    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()"
-         ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
-      <div class="drop-icon">🎬</div>
-      <p><strong>Drop your video here</strong><br/>or click to browse — MP4, MOV, AVI up to 2GB</p>
-    </div>
-    <input type="file" id="file-input" accept="video/*" style="display:none" onchange="handleFileSelect(event)"/>
-    <button class="btn-main" id="upload-go-btn" onclick="startProcessing()" style="width:100%" disabled>Generate clips →</button>
+  <div class="drop-zone" id="drop-zone"
+       onclick="document.getElementById('file-input').click()"
+       ondragover="handleDragOver(event)"
+       ondragleave="handleDragLeave(event)"
+       ondrop="handleDrop(event)">
+    <div class="drop-icon">🎬</div>
+    <p><strong>Drop your video here</strong><br/>or click to browse — MP4, MOV, AVI, WebM up to 2GB</p>
   </div>
+  <input type="file" id="file-input" accept="video/*" style="display:none"
+         onchange="handleFileSelect(event)"/>
 
   <!-- STEP 1: CONTENT CATEGORY -->
   <div class="options-label" style="margin-top:1.5rem">Step 1 — What type of content is this?</div>
@@ -699,6 +707,11 @@
       <div class="content-card-icon">😂</div>
       <div class="content-card-name">Entertainment</div>
       <div class="content-card-desc">Comedy, commentary, skits</div>
+    </div>
+    <div class="content-card" onclick="selectContent(this, 'sports')" data-content="sports">
+      <div class="content-card-icon">⚽</div>
+      <div class="content-card-name">Sports</div>
+      <div class="content-card-desc">Highlights, reactions, clips</div>
     </div>
   </div>
 
@@ -781,6 +794,19 @@
   <input type="range" min="15" max="90" value="45" step="15"
          oninput="document.getElementById('clip-len-val').textContent=this.value+'s'"/>
 
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:1rem;padding:10px 0;border-top:1px solid var(--border)">
+    <div>
+      <div style="font-size:13px;font-weight:500;color:var(--text)">Burn captions into video</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">Off — captions are provided as text to copy</div>
+    </div>
+    <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer">
+      <input type="checkbox" id="caption-toggle" style="opacity:0;width:0;height:0"
+             onchange="toggleCaption(this)">
+      <span id="caption-slider" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:var(--border);border-radius:24px;transition:.3s"></span>
+      <span id="caption-knob" style="position:absolute;content:'';height:18px;width:18px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.3s"></span>
+    </label>
+  </div>
+
   <!-- PROGRESS -->
   <div class="progress-section" id="progress-section">
     <div class="options-label" style="margin-bottom:1rem">Processing your video</div>
@@ -829,29 +855,33 @@
 
 <!-- PRICING -->
 <div class="pricing-strip">
-  <div class="section-label">Credit packs</div>
+  <div class="section-label">Buy clips, not minutes.</div>
+  <p style="text-align:center;color:var(--muted);font-size:13px;margin-bottom:1.5rem">No subscriptions. No expiring credits. No per-minute charges. Just clips.</p>
   <div class="pricing-cards">
     <div class="price-card">
       <div class="price-name">Starter</div>
-      <div class="price-amount">$5<span></span></div>
+      <div class="price-amount">$5</div>
       <div class="price-clips">10 clips</div>
       <div class="price-perclip">$0.50 per clip</div>
-      <button class="btn-sm" onclick="showToast('💳 Stripe coming soon!')">Get started</button>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:1rem">Videos up to 30 min</div>
+      <button class="btn-sm" onclick="showToast('Coming soon!')">Get started</button>
     </div>
     <div class="price-card featured">
       <div class="featured-tag">Most popular</div>
       <div class="price-name">Creator</div>
-      <div class="price-amount">$19<span></span></div>
+      <div class="price-amount">$19</div>
       <div class="price-clips">50 clips</div>
       <div class="price-perclip">$0.38 per clip</div>
-      <button class="btn-sm primary" onclick="showToast('💳 Stripe coming soon!')">Buy credits</button>
+      <div style="font-size:11px;color:var(--accent2);margin-bottom:1rem">Videos up to 1 hour</div>
+      <button class="btn-sm primary" onclick="showToast('Coming soon!')">Buy credits</button>
     </div>
     <div class="price-card">
       <div class="price-name">Pro</div>
-      <div class="price-amount">$39<span></span></div>
+      <div class="price-amount">$39</div>
       <div class="price-clips">120 clips</div>
       <div class="price-perclip">$0.33 per clip</div>
-      <button class="btn-sm" onclick="showToast('💳 Stripe coming soon!')">Go pro</button>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:1rem">Videos up to 2 hours</div>
+      <button class="btn-sm" onclick="showToast('Coming soon!')">Go pro</button>
     </div>
   </div>
 </div>
@@ -900,6 +930,11 @@
       text:    'We recommend Funny moments for entertainment content.',
       note:    'Comedy and reaction clips drive the highest share rates on TikTok and Reels.',
     },
+    sports: {
+      type:    'viral',
+      text:    'We recommend Viral moments for sports content.',
+      note:    'Goal reactions, skill highlights, and shocking moments perform best for sports content.',
+    },
   };
 
   function selectContent(el, contentType) {
@@ -907,6 +942,8 @@
     document.querySelectorAll('.content-card').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
     selectedContent = contentType;
+    // Track content category selection
+    posthog.capture('content_category_selected', { category: contentType });
 
     // Get recommendation
     const rec = RECOMMENDATIONS[contentType];
@@ -929,20 +966,18 @@
     document.querySelectorAll('#format-selector .clip-type').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
     selectedFormat = fmt;
+    // Track format selection
+    posthog.capture('format_selected', { format: fmt });
   }
 
-  function switchTab(tab, el) {
-    activeTab = tab;
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    el.classList.add('active');
-    document.getElementById('tab-url').style.display    = tab === 'url'    ? '' : 'none';
-    document.getElementById('tab-upload').style.display = tab === 'upload' ? '' : 'none';
-  }
+  // Tabs removed — single input area detects URL vs file automatically
 
   function selectType(el) {
     document.querySelectorAll('#clip-type-grid .clip-type').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
     selectedClipType = el.dataset.type || 'viral';
+    // Track clip type selection
+    posthog.capture('clip_type_selected', { clip_type: selectedClipType });
   }
 
   function handleDragOver(e) {
@@ -974,42 +1009,66 @@
   }
 
   async function startProcessing() {
-    const url = document.getElementById('url-input')?.value.trim();
-    if (activeTab === 'url' && !url) {
-      showToast('Paste a YouTube URL first');
+    const url       = document.getElementById('url-input')?.value.trim();
+    const fileInput = document.getElementById('file-input');
+    const hasFile   = fileInput && fileInput.files && fileInput.files[0];
+
+    if (!url && !hasFile) {
+      showToast('Paste a URL or upload a video file');
       return;
     }
 
+    posthog.capture('generate_clicked', {
+      content_category: selectedContent,
+      clip_type:        selectedClipType,
+      format:           selectedFormat,
+      source:           activeTab,
+    });
+
     // Hide all input sections
-    document.getElementById('tab-url').style.display    = 'none';
-    document.getElementById('tab-upload').style.display = 'none';
-    document.querySelector('.tabs').style.display       = 'none';
+    document.getElementById('drop-zone').style.display  = 'none';
+    document.getElementById('go-btn').style.display     = 'none';
+    document.querySelector('.input-group').style.display = 'none';
+    const orDivider = document.querySelector('.input-group + div');
+    if (orDivider) orDivider.style.display = 'none';
     document.querySelectorAll('.options-label').forEach(el => el.style.display = 'none');
     document.querySelectorAll('.clip-types, input[type=range], .slider-row, #format-selector, #content-grid, #recommend-banner, .recommend-grid').forEach(el => el.style.display = 'none');
 
-    // Show progress
     document.getElementById('progress-section').classList.add('visible');
 
-    // Get settings
     const sliders    = document.querySelectorAll('input[type=range]');
     const numClips   = sliders[0] ? parseInt(sliders[0].value) : 5;
     const clipLength = sliders[1] ? parseInt(sliders[1].value) : 45;
 
-    activateStep('step-1', 'Downloading video...');
-
     try {
-      const response = await fetch('/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url:         url,
-          clip_type:   selectedClipType || 'viral',
-          num_clips:   numClips,
-          clip_length: clipLength,
-        })
-      });
+      let response, sourceUrl;
 
-      completeStep('step-1', 'Video downloaded');
+      if (hasFile) {
+        activateStep('step-1', 'Uploading your video...');
+        const formData = new FormData();
+        formData.append('file',        fileInput.files[0]);
+        formData.append('clip_type',   selectedClipType || 'viral');
+        formData.append('num_clips',   numClips);
+        formData.append('clip_length', clipLength);
+        response  = await fetch('/upload', { method: 'POST', body: formData });
+        sourceUrl = 'upload://' + fileInput.files[0].name;
+        completeStep('step-1', 'Video uploaded');
+      } else {
+        activateStep('step-1', 'Downloading video...');
+        response  = await fetch('/analyze', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            url:         url,
+            clip_type:   selectedClipType || 'viral',
+            num_clips:   numClips,
+            clip_length: clipLength,
+          })
+        });
+        sourceUrl = url;
+        completeStep('step-1', 'Video downloaded');
+      }
+
       activateStep('step-2', 'Transcribing with Gemini Flash...');
       await new Promise(r => setTimeout(r, 600));
       completeStep('step-2', 'Transcript ready');
@@ -1017,7 +1076,6 @@
       await new Promise(r => setTimeout(r, 600));
 
       const data = await response.json();
-
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Something went wrong');
       }
@@ -1028,7 +1086,7 @@
       completeStep('step-4', 'Clips ready!');
       await new Promise(r => setTimeout(r, 300));
 
-      showResults(data, url);
+      showResults(data, sourceUrl);
 
     } catch (err) {
       console.error(err);
@@ -1055,6 +1113,14 @@
 
   function showResults(data, sourceUrl) {
     currentAnalysis = data; // store for cutting
+    // Track successful analysis
+    posthog.capture('clips_generated', {
+      clip_count:       (data.clips || []).length,
+      language:         data.language,
+      content_category: selectedContent,
+      clip_type:        selectedClipType,
+      cost:             data.cost?.this_run || 0,
+    });
     document.getElementById('progress-section').classList.remove('visible');
     document.getElementById('results-section').classList.add('visible');
 
@@ -1067,6 +1133,62 @@
     const clips = data.clips || [];
     clips.forEach((clip) => {
       const isViral = clip.viral_score >= 90;
+      const scores  = clip.scores || {};
+
+      function scoreBar(val, label) {
+        const pct   = val || 0;
+        const color = pct >= 90 ? '#22D3A0' : pct >= 75 ? '#6C63FF' : '#F59E0B';
+        return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">'
+          + '<span style="font-size:10px;color:var(--muted);width:54px;flex-shrink:0">' + label + '</span>'
+          + '<div style="flex:1;height:4px;background:var(--border);border-radius:2px">'
+          + '<div style="width:' + pct + '%;height:100%;background:' + color + ';border-radius:2px;transition:width .4s"></div>'
+          + '</div>'
+          + '<span style="font-size:10px;color:var(--muted);min-width:22px;text-align:right">' + pct + '</span>'
+          + '</div>';
+      }
+
+      const citations  = clip.citations || {};
+      const confidence = clip.confidence_level || '';
+      const confNote   = clip.confidence_note  || '';
+      const signals    = (clip.signals_used || []).join(' + ');
+
+      function scoreLine(val, label, key) {
+        const pct    = val || 0;
+        const color  = pct >= 90 ? '#22D3A0' : pct >= 75 ? '#6C63FF' : '#F59E0B';
+        const cite   = citations[key] ? citations[key].citation  : '';
+        const source = citations[key] ? citations[key].source    : '';
+        return '<div style="margin-bottom:8px">'
+          + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">'
+          + '<span style="font-size:10px;color:var(--muted);width:54px;flex-shrink:0">' + label + '</span>'
+          + '<div style="flex:1;height:4px;background:var(--border);border-radius:2px">'
+          + '<div style="width:' + pct + '%;height:100%;background:' + color + ';border-radius:2px"></div>'
+          + '</div>'
+          + '<span style="font-size:10px;color:var(--muted);min-width:22px;text-align:right">' + pct + '</span>'
+          + '</div>'
+          + (cite ? '<div style="font-size:9px;color:var(--muted);padding-left:60px;line-height:1.4;margin-bottom:2px">' + cite + '</div>' : '')
+          + (source ? '<div style="font-size:9px;color:var(--accent2);padding-left:60px;opacity:.7">Source: ' + source + '</div>' : '')
+          + '</div>';
+      }
+
+      const hasScores = scores.hook !== undefined;
+      const scoreHtml = hasScores
+        ? '<div style="padding:8px 12px;border-top:1px solid var(--border)">'
+          + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+          + '<div style="font-size:10px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.05em">Score breakdown</div>'
+          + (confidence ? '<div style="font-size:9px;padding:1px 6px;border-radius:4px;background:' + (confidence==='Very High'||confidence==='High' ? 'rgba(34,211,160,.15)' : 'rgba(245,158,11,.15)') + ';color:' + (confidence==='Very High'||confidence==='High' ? '#22D3A0' : '#F59E0B') + '">' + confidence + ' confidence</div>' : '')
+          + '</div>'
+          + scoreLine(scores.hook,     'Hook',     'hook')
+          + scoreLine(scores.energy,   'Energy',   'energy')
+          + scoreLine(scores.audience, 'Audience', 'audience')
+          + scoreLine(scores.value,    'Value',    'value')
+          + scoreLine(scores.trend,    'Trend',    'trend')
+          + (signals ? '<div style="font-size:9px;color:var(--muted);margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">Signals: ' + signals + '</div>' : '')
+          + (confNote ? '<div style="font-size:9px;color:var(--muted);margin-top:2px">' + confNote + '</div>' : '')
+          + '</div>'
+        : '';
+
+      const captionText = (clip.suggested_caption || '').replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/'/g, "\\'");
+
       grid.innerHTML += `
         <div class="clip-card">
           <div class="clip-thumb">
@@ -1081,8 +1203,10 @@
             <div class="clip-meta">${clip.start_time} → ${clip.end_time} · ${clip.duration_seconds}s</div>
             <div class="clip-meta" style="margin-top:4px;font-size:10px;color:var(--muted)">${clip.reason || ''}</div>
           </div>
-          <div class="clip-actions">
-            <button class="btn-sm" onclick="copyCaption(\`${(clip.suggested_caption || '').replace(/`/g, '\`')}\`)">Copy caption</button>
+          ${scoreHtml}
+          ${clip.hashtags && clip.hashtags.length ? '<div style="padding:6px 12px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:4px">' + clip.hashtags.slice(0,6).map(function(h){return '<span style="font-size:10px;color:var(--accent2);background:rgba(108,99,255,.1);padding:2px 6px;border-radius:4px">' + h + '</span>';}).join('') + '</div>' : ''}
+            <button class="btn-sm" onclick="copyCaption('${captionText}')">Copy caption</button>
+            <button class="btn-sm" onclick="copyHashtags(${clip.rank})">Copy hashtags</button>
             <button class="btn-sm primary" onclick="cutClip(${clip.rank}, '${sourceUrl}')">Cut clip</button>
           </div>
         </div>`;
@@ -1093,8 +1217,42 @@
     }
   }
 
+  let burnCaptions = false;
+
+  function toggleCaption(el) {
+    burnCaptions = el.checked;
+    const knob = document.getElementById('caption-knob');
+    const slider = document.getElementById('caption-slider');
+    const label = el.parentElement.parentElement.querySelector('div:last-child div:last-child');
+    if (burnCaptions) {
+      knob.style.transform = 'translateX(20px)';
+      slider.style.background = 'var(--accent)';
+      if (label) label.textContent = 'On — captions will be burned into the video';
+    } else {
+      knob.style.transform = 'translateX(0)';
+      slider.style.background = 'var(--border)';
+      if (label) label.textContent = 'Off — captions are provided as text to copy';
+    }
+  }
+
   function copyCaption(text) {
-    navigator.clipboard.writeText(text).then(() => showToast('Caption copied!'));
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('Caption copied!');
+      posthog.capture('caption_copied');
+    });
+  }
+
+  function copyHashtags(rank) {
+    const clip = (currentAnalysis?.clips || []).find(c => c.rank === rank);
+    if (!clip || !clip.hashtags || !clip.hashtags.length) {
+      showToast('No hashtags available');
+      return;
+    }
+    const text = clip.hashtags.join(' ');
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('Hashtags copied!');
+      posthog.capture('hashtags_copied', { rank });
+    });
   }
 
   // Track current analysis results for cutting
@@ -1106,6 +1264,7 @@
 
     const fmt = selectedFormat || 'vertical';
     showToast('Cutting clip #' + rank + '... this takes a minute');
+    posthog.capture('cut_clip_clicked', { rank, format: fmt });
 
     try {
       const response = await fetch('/clip', {
@@ -1116,7 +1275,7 @@
           title:         currentAnalysis?.title || 'video',
           clips:         [clip],
           format:        fmt,
-          burn_captions: true,
+          burn_captions: burnCaptions,
         })
       });
 

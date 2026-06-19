@@ -108,18 +108,16 @@ def build_ffmpeg_filter(fmt: str, caption: str = "") -> str:
     h = FORMATS[fmt]["height"]
 
     if fmt == "vertical" or fmt == "square":
-        # Blurred background effect:
-        # 1. Scale source to fill the output dimensions (background layer)
-        # 2. Blur it heavily
-        # 3. Scale source to fit inside output (foreground layer)
-        # 4. Overlay foreground centered on blurred background
+        # Fixed blurred background — works on webm and all source formats
+        # Uses gblur instead of boxblur, split filter for dual stream
         bg_filter = (
-            f"[0:v]scale={w}:{h}:force_original_aspect_ratio=increase,"
+            f"[0:v]format=yuv420p,split=2[bg_src][fg_src];"
+            f"[bg_src]scale={w}:{h}:force_original_aspect_ratio=increase,"
             f"crop={w}:{h},"
-            f"boxblur=20:5[bg];"
-            f"[0:v]scale={w}:{h}:force_original_aspect_ratio=decrease,"
-            f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:black[fg];"
-            f"[bg][fg]overlay=0:0[base]"
+            f"gblur=sigma=20[bg];"
+            f"[fg_src]scale={w}:{h}:force_original_aspect_ratio=decrease[fg_scaled];"
+            f"[fg_scaled]pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black@0[fg];"
+            f"[bg][fg]overlay=(W-w)/2:(H-h)/2[base]"
         )
 
         if caption:
@@ -135,12 +133,13 @@ def build_ffmpeg_filter(fmt: str, caption: str = "") -> str:
                 f":y=h-th-60[out]"
             )
             return filter_str, "[out]"
-        return bg_filter + "[out]", "[out]"
+        return bg_filter.replace("[base]", "[out]"), "[out]"
 
     else:
         # Horizontal — scale to fit, pad with black if needed
         base_filter = (
-            f"[0:v]scale={w}:{h}:force_original_aspect_ratio=decrease,"
+            f"[0:v]format=yuv420p,"
+            f"scale={w}:{h}:force_original_aspect_ratio=decrease,"
             f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:black[base]"
         )
 
@@ -157,7 +156,7 @@ def build_ffmpeg_filter(fmt: str, caption: str = "") -> str:
                 f":y=h-th-40[out]"
             )
             return filter_str, "[out]"
-        return base_filter + "[out]", "[out]"
+        return base_filter.replace("[base]", "[out]"), "[out]"
 
 
 def cut_clip(
@@ -211,7 +210,7 @@ def cut_all_clips(
     clips:         list,
     output_dir:    str,
     fmt:           str  = "vertical",
-    burn_captions: bool = True,
+    burn_captions: bool = False,
 ) -> list:
     """
     Cuts all clips from the source video.

@@ -1,5 +1,7 @@
 google-genai
 yt-dlp
 flask
+flask-cors
 python-dotenv
 google-api-python-client
+pytrends
