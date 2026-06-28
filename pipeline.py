@@ -22,6 +22,7 @@ from google.genai import types
 from dotenv import load_dotenv
 from trend_detector import get_trend_data, calculate_trend_score
 from scoring_engine import score_all_clips, get_comment_signals
+from chunker import chunk_audio, merge_chunk_results, cleanup_chunks, get_audio_duration
 
 load_dotenv()
 
@@ -441,16 +442,56 @@ def run_pipeline(
     num_clips: int = 5,
     clip_length: int = 45,
 ) -> dict:
-    """Full ClipForge pipeline. Returns the complete results dict."""
+    """Full ClipForge pipeline with chunking support for long videos."""
     if not GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY not found. Add it to your .env file.")
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         audio_path, title, duration, mime_type = download_audio(url, tmp_dir)
 
-        results = analyze_with_gemini(
-            audio_path, mime_type, clip_type, num_clips, clip_length, source_url=url
-        )
+        # ── Chunking for long videos ───────────────────────────────────────
+        chunks = chunk_audio(audio_path, chunk_minutes=30, overlap_seconds=60)
+
+        if len(chunks) == 1:
+            # Short video — process normally
+            results = analyze_with_gemini(
+                audio_path, mime_type, clip_type, num_clips, clip_length, source_url=url
+            )
+        else:
+            # Long video — process each chunk then merge
+            print(f"\n    Processing {len(chunks)} chunks...")
+            chunk_results = []
+
+            for chunk in chunks:
+                print(f"\n    [Chunk {chunk['chunk_index']+1}/{chunk['total_chunks']}] "
+                      f"{chunk['start_secs']/60:.0f}m - {chunk['end_secs']/60:.0f}m")
+                try:
+                    chunk_result = analyze_with_gemini(
+                        chunk["path"],
+                        mime_type,
+                        clip_type,
+                        num_clips,
+                        clip_length,
+                        source_url=url,
+                    )
+                    chunk_results.append((chunk_result, chunk["offset_secs"]))
+                except Exception as e:
+                    print(f"    Chunk {chunk['chunk_index']+1} failed: {e} — skipping")
+
+            # Merge all chunk results
+            if not chunk_results:
+                raise Exception("All chunks failed to process. Please try again.")
+
+            merged_clips = merge_chunk_results(chunk_results, num_clips=num_clips)
+
+            # Use metadata from first chunk, merged clips
+            results = chunk_results[0][0].copy()
+            results["clips"] = merged_clips
+            results["chunked"] = True
+            results["chunk_count"] = len(chunks)
+
+            cleanup_chunks(chunks)
+
         results["source_title"]    = title
         results["source_duration"] = duration
         results["source_url"]      = url
@@ -470,16 +511,44 @@ def run_trend_and_scoring(
 ) -> dict:
     """
     Runs Gemini analysis + trend scoring on an already-downloaded/uploaded file.
-    Used by both the URL pipeline and the direct file upload endpoint.
+    Supports chunking for long videos. Used by direct file upload endpoint.
     """
-    results = analyze_with_gemini(
-        audio_path=audio_path,
-        mime_type=mime_type,
-        clip_type=clip_type,
-        num_clips=num_clips,
-        clip_length=clip_length,
-        source_url=source_url,
-    )
+    chunks = chunk_audio(audio_path, chunk_minutes=30, overlap_seconds=60)
+
+    if len(chunks) == 1:
+        results = analyze_with_gemini(
+            audio_path=audio_path,
+            mime_type=mime_type,
+            clip_type=clip_type,
+            num_clips=num_clips,
+            clip_length=clip_length,
+            source_url=source_url,
+        )
+    else:
+        print(f"\n    Long video detected — processing {len(chunks)} chunks...")
+        chunk_results = []
+        for chunk in chunks:
+            print(f"\n    [Chunk {chunk['chunk_index']+1}/{chunk['total_chunks']}] "
+                  f"{chunk['start_secs']/60:.0f}m - {chunk['end_secs']/60:.0f}m")
+            try:
+                chunk_result = analyze_with_gemini(
+                    chunk["path"], mime_type, clip_type,
+                    num_clips, clip_length, source_url=source_url,
+                )
+                chunk_results.append((chunk_result, chunk["offset_secs"]))
+            except Exception as e:
+                print(f"    Chunk {chunk['chunk_index']+1} failed: {e} — skipping")
+
+        if not chunk_results:
+            raise Exception("All chunks failed to process. Please try again.")
+
+        merged_clips = merge_chunk_results(chunk_results, num_clips=num_clips)
+        results = chunk_results[0][0].copy()
+        results["clips"]       = merged_clips
+        results["chunked"]     = True
+        results["chunk_count"] = len(chunks)
+        cleanup_chunks(chunks)
+
     results["source_title"]    = title
     results["source_duration"] = 0
     results["source_url"]      = source_url

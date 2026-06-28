@@ -618,35 +618,40 @@
     <button class="btn-buy" onclick="showToast('💳 Stripe checkout coming soon!')">Buy more</button>
   </div>
 </nav>
-
 <div class="hero">
-  <div class="hero-eyebrow">AI-powered clipping</div>
-  <h1>Your content.<br/><em>Your best moments.</em><br/>Ready to post.</h1>
-  <p>Paste a YouTube link or upload a video. ClipForge finds your viral moments, clips them, adds captions, and has them ready in minutes.</p>
+  <div class="hero-eyebrow">Built for long-form creators</div>
+  <h1>3 hours of podcast.<br/><em>10 clips ready to post.</em><br/>In minutes.</h1>
+  <p>Your best moments are buried in hours of content. ClipForge finds them, scores them against what's trending right now, and delivers clips ready to post — with proof of why each one works.</p>
+  <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:1.2rem">
+    <div style="font-size:12px;color:var(--accent2);background:rgba(108,99,255,.1);padding:5px 12px;border-radius:20px;border:1px solid rgba(108,99,255,.2)">Works on 3+ hour episodes</div>
+    <div style="font-size:12px;color:var(--accent2);background:rgba(108,99,255,.1);padding:5px 12px;border-radius:20px;border:1px solid rgba(108,99,255,.2)">Real audience data scoring</div>
+    <div style="font-size:12px;color:var(--accent2);background:rgba(108,99,255,.1);padding:5px 12px;border-radius:20px;border:1px solid rgba(108,99,255,.2)">Buy clips, not minutes</div>
+  </div>
 </div>
-
 <!-- HOW IT WORKS -->
 <div class="how-section">
   <div class="section-label">How it works</div>
   <div class="steps-row">
     <div class="how-step">
       <div class="how-step-num">1</div>
-      <div class="how-step-name">Paste or upload</div>
-      <div class="how-step-desc">YouTube URL or your video file</div>
+      <div class="how-step-name">Drop your episode</div>
+      <div class="how-step-desc">Paste a URL or upload directly — any length, any platform</div>
     </div>
     <div class="how-step">
       <div class="how-step-num">2</div>
-      <div class="how-step-name">AI analyzes</div>
-      <div class="how-step-desc">Finds your viral moments</div>
+      <div class="how-step-name">AI finds the moments</div>
+      <div class="how-step-desc">Multi-signal scoring analyzes up to 3 hours in minutes</div>
     </div>
     <div class="how-step">
       <div class="how-step-num">3</div>
-      <div class="how-step-name">Clips generated</div>
-      <div class="how-step-desc">Auto-captions included</div>
+      <div class="how-step-name">See the proof</div>
+      <div class="how-step-desc">Every clip shows exactly why it scored high</div>
     </div>
     <div class="how-step">
       <div class="how-step-num">4</div>
-      <div class="how-step-name">Download &amp; post</div>
+      <div class="how-step-name">Post and grow</div>
+      <div class="how-step-desc">Captions and hashtags included — ready in one click</div>
+    </div>
       <div class="how-step-desc">Ready for TikTok, Reels, Shorts</div>
     </div>
   </div>
@@ -681,17 +686,17 @@
          onchange="handleFileSelect(event)"/>
 
   <!-- STEP 1: CONTENT CATEGORY -->
-  <div class="options-label" style="margin-top:1.5rem">Step 1 — What type of content is this?</div>
+  <div class="options-label" style="margin-top:1.5rem">Step 1 — What type of content is this? <span style="color:var(--muted);font-size:11px;font-weight:400">Podcast selected by default</span></div>
   <div class="recommend-grid" id="content-grid">
+    <div class="content-card selected" onclick="selectContent(this, 'podcast')" data-content="podcast">
+      <div class="content-card-icon">🎙️</div>
+      <div class="content-card-name">Podcast / Interview</div>
+      <div class="content-card-desc">Conversations, hot takes, guests</div>
+    </div>
     <div class="content-card" onclick="selectContent(this, 'gaming')" data-content="gaming">
       <div class="content-card-icon">🎮</div>
       <div class="content-card-name">Gaming / Stream</div>
       <div class="content-card-desc">Gameplay, reactions, live streams</div>
-    </div>
-    <div class="content-card" onclick="selectContent(this, 'podcast')" data-content="podcast">
-      <div class="content-card-icon">🎙️</div>
-      <div class="content-card-name">Podcast / Interview</div>
-      <div class="content-card-desc">Conversations, hot takes, guests</div>
     </div>
     <div class="content-card" onclick="selectContent(this, 'vlog')" data-content="vlog">
       <div class="content-card-icon">📖</div>
@@ -726,7 +731,7 @@
   <!-- STEP 2: CLIP TYPE -->
   <div class="options-label">Step 2 — Choose clip type <span style="color:var(--muted);font-size:11px;font-weight:400">(or use our recommendation above)</span></div>
   <div class="clip-types" id="clip-type-grid">
-    <div class="clip-type selected" onclick="selectType(this)" data-type="viral">
+    <div class="clip-type" onclick="selectType(this)" data-type="viral">
       <div class="clip-type-icon">🔥</div>
       <div class="clip-type-name">Viral moments</div>
       <div class="clip-type-desc">High energy, hype peaks</div>
@@ -751,7 +756,7 @@
       <div class="clip-type-name">Tips & education</div>
       <div class="clip-type-desc">Useful, actionable info</div>
     </div>
-    <div class="clip-type" onclick="selectType(this)" data-type="quotable">
+    <div class="clip-type selected" onclick="selectType(this)" data-type="quotable">
       <div class="clip-type-icon">💬</div>
       <div class="clip-type-name">Quotable moments</div>
       <div class="clip-type-desc">Hot takes, one-liners</div>
@@ -814,30 +819,36 @@
       <div class="step" id="step-1">
         <div class="step-dot">1</div>
         <div class="step-info">
-          <div class="step-name">Fetching video</div>
+          <div class="step-name">Downloading your video</div>
           <div class="step-status">Waiting...</div>
         </div>
       </div>
       <div class="step" id="step-2">
         <div class="step-dot">2</div>
         <div class="step-info">
-          <div class="step-name">Transcribing audio</div>
+          <div class="step-name">Analyzing audio with Gemini</div>
           <div class="step-status">Waiting...</div>
         </div>
       </div>
       <div class="step" id="step-3">
         <div class="step-dot">3</div>
         <div class="step-info">
-          <div class="step-name">AI finding best moments</div>
+          <div class="step-name">Scoring with multi-signal engine</div>
           <div class="step-status">Waiting...</div>
         </div>
       </div>
       <div class="step" id="step-4">
         <div class="step-dot">4</div>
         <div class="step-info">
-          <div class="step-name">Cutting clips + captions</div>
+          <div class="step-name">Preparing your clips</div>
           <div class="step-status">Waiting...</div>
         </div>
+      </div>
+
+      <!-- Download notice — shows after 3s on step 1 -->
+      <div id="download-notice" style="margin-top:1rem;padding:12px 14px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.2);border-radius:var(--radius);display:none">
+        <div style="font-size:12px;color:var(--accent2);font-weight:500;margin-bottom:4px">This may take a minute</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5">Longer videos take more time to download and analyze. Your clips will appear automatically when ready — don't close this tab.</div>
       </div>
     </div>
   </div>
@@ -856,7 +867,7 @@
 <!-- PRICING -->
 <div class="pricing-strip">
   <div class="section-label">Buy clips, not minutes.</div>
-  <p style="text-align:center;color:var(--muted);font-size:13px;margin-bottom:1.5rem">No subscriptions. No expiring credits. No per-minute charges. Just clips.</p>
+  <p style="text-align:center;color:var(--muted);font-size:13px;margin-bottom:1.5rem">Upload a 3-hour podcast and only pay for the clips you keep. No subscriptions. No expiring credits. No per-minute charges.</p>
   <div class="pricing-cards">
     <div class="price-card">
       <div class="price-name">Starter</div>
@@ -880,7 +891,7 @@
       <div class="price-amount">$39</div>
       <div class="price-clips">120 clips</div>
       <div class="price-perclip">$0.33 per clip</div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:1rem">Videos up to 2 hours</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:1rem">Videos up to 3 hours</div>
       <button class="btn-sm" onclick="showToast('Coming soon!')">Go pro</button>
     </div>
   </div>
@@ -900,8 +911,18 @@
   let activeTab = 'url';
   let fileSelected = false;
   let selectedFormat = 'vertical';
-  let selectedClipType = 'viral';
-  let selectedContent = null;
+  let selectedClipType = 'quotable';
+  let selectedContent = 'podcast';
+
+  // Show podcast recommendation on page load
+  window.addEventListener('load', function() {
+    const rec = RECOMMENDATIONS['podcast'];
+    if (rec) {
+      document.getElementById('recommend-text').textContent = rec.text;
+      document.getElementById('recommend-note').textContent = rec.note;
+      document.getElementById('recommend-banner').classList.add('visible');
+    }
+  });
 
   // Recommendation engine — built from real test data
   const RECOMMENDATIONS = {
@@ -913,7 +934,7 @@
     podcast: {
       type:    'quotable',
       text:    'We recommend Quotable moments for podcasts and interviews.',
-      note:    'Hot takes and memorable one-liners drive the most shares from long-form conversations.',
+      note:    'Hot takes, strong opinions, and memorable lines drive the most shares from long-form content. Perfect for 3+ hour episodes.',
     },
     vlog: {
       type:    'highlights',
@@ -1100,6 +1121,18 @@
     if (!step) return;
     step.classList.add('active');
     step.querySelector('.step-status').textContent = message;
+    // Show download notice on step 1
+    if (stepId === 'step-1') {
+      const notice = document.getElementById('download-notice');
+      if (notice) {
+        setTimeout(() => { notice.style.display = 'block'; }, 3000);
+      }
+    }
+    // Hide notice once we move past step 1
+    if (stepId === 'step-2') {
+      const notice = document.getElementById('download-notice');
+      if (notice) notice.style.display = 'none';
+    }
   }
 
   function completeStep(stepId, message) {
@@ -1125,7 +1158,13 @@
     document.getElementById('results-section').classList.add('visible');
 
     const header = document.querySelector('.results-title');
-    if (header) header.textContent = data.title || 'Your clips are ready';
+    if (header) {
+      let titleText = data.title || 'Your clips are ready';
+      if (data.chunk_count && data.chunk_count > 1) {
+        titleText += ` (analyzed in ${data.chunk_count} parts)`;
+      }
+      header.textContent = titleText;
+    }
 
     const grid = document.getElementById('clips-grid');
     grid.innerHTML = '';

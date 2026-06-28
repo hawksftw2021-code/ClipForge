@@ -5,3 +5,4 @@ flask-cors
 python-dotenv
 google-api-python-client
 pytrends
+google-cloud-language
